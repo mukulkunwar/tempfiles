@@ -1,0 +1,151 @@
+        Platform mapping SSDP
+        collection SSDP_payload_mappings
+        {
+        "_id": "RemoteDoors",
+        "fieldMappings": {
+        "action": {
+        "targetPath": "data.state",
+        "valueMap": {
+        "lock": 1,
+        "unlock": 0
+        }
+        }
+        }
+        }
+
+        Platform mapping CVMP
+
+                collection CVMP_payload_mappings
+                {
+                "_id": "RemoteDoors",
+                "fieldMappings": {
+                "action": {
+                "targetPath": "data.state",
+                "valueMap": {
+                "lock": 1,
+                "unlock": 0
+                }
+                }
+                }
+                }
+
+
+        redis vehicle state
+
+        	  HSET devices:UIN987654321 \
+          hash "1692845861" \
+          lastUpdate "2025-09-29T12:07:51.911060Z" \
+          state "1" \
+          updated "2025-09-29T12:06:28.955951Z" \
+          uuid "f1fe004d-b75a-49a1-b20c-2b25da54ee69" \
+          services.[REMOTE].state "1" \
+          services.[REMOTE].updated "2025-09-29T12:07:51.911060Z" \
+          vin "1HGCM82633A004352"
+
+
+          rcz_retry_config mongo collection
+
+
+         [
+           {
+             "_id": "CVMP",
+             "events": {
+               "RemoteDoors": {
+                 "retryInterval": 40,
+                 "maxRetry": 2,
+                 "maxTTL": 120
+               },
+               "RemoteEngine": {
+                 "retryInterval": 40,
+                 "maxRetry": 2,
+                 "maxTTL": 120
+               }
+             }
+           },
+           {
+             "_id": "SSDP",
+             "events": {
+               "RemoteDoors": {
+                 "retryInterval": 40,
+                 "maxRetry": 2,
+                 "maxTTL": 120
+               },
+               "RemoteEngine": {
+                 "retryInterval": 40,
+                 "maxRetry": 6,
+                 "maxTTL": 120
+               }
+             }
+           },
+           {
+             "_id": "GSDP",
+             "events": {
+               "RemoteDoors": {
+                 "retryInterval": 40,
+                 "maxRetry": 2,
+                 "maxTTL": 120
+               },
+               "RemoteEngine": {
+                 "retryInterval": 40,
+                 "maxRetry": 2,
+                 "maxTTL": 120
+               }
+             }
+           }
+         ]
+
+
+Adding VP to Mongo:
+	SSDP_vehicle_profile
+{
+  "_id": "1HGCM82633A004352",
+  "simInfo": {
+    "msisdn": "9876543210",
+    "mno": "Vodafone"
+  },
+  "devices": [
+    {
+      "deviceId": "UIN987654321",
+      "deviceType": "TBM"
+    },
+    {
+      "deviceId": "UIN987654322",
+      "deviceType": "HU"
+    }
+  ]
+}
+
+
+ACK and response used to test from MQTT:
+stla/RemoteServices/from/uin/UIN987654321/Ack
+{
+"ack_date": "2025-10-14T12:15:44Z",
+"req_id": "REQ1234561"
+}
+
+
+
+stla/RemoteServices/from/uin/UIN987654321/Response
+{
+  "data": {
+    "doors_state": {
+      "doors_locking_state": 7,
+      "doors_opening_state": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "driver_sel_state": 0
+    },
+    "lock_resp_state": 0,
+    "sev_state": 0
+  },
+  "req_id": "REQ1234561",
+  "resp_date": "2025-01-29T11:06:42Z",
+  "status": 0,
+  "vin": "1HGCM82633A004352"
+}

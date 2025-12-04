@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<assembly>
+    <id>delivery</id>
+    <files>
+        <file>
+            <source>${project.build.directory}/${artifactId}-${version}.jar</source>
+            <outputDirectory>opt/bin</outputDirectory>
+            <destName>${artifactId}.jar</destName>
+            <filtered>false</filtered>
+        </file>
+         <file>
+            <source>${project.build.outputDirectory}/elasticapm.properties</source>
+            <outputDirectory>opt/bin/apm</outputDirectory>
+            <destName>elasticapm.properties</destName>
+            <filtered>false</filtered>
+        </file>
+     </files>
+</assembly>

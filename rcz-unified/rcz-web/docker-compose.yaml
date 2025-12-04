@@ -1,0 +1,153 @@
+version: '3.7'
+
+services:
+  mosquitto:
+    image: repository.inetpsa.com/eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    command: mosquitto -c "/mosquitto-no-auth.conf"
+    environment:
+      - TZ=Europe/London
+    restart: unless-stopped
+  mosquitto1:
+    image: repository.inetpsa.com/eclipse-mosquitto:latest
+    ports:
+      - "1884:1883"
+      - "9002:9001"
+    command: mosquitto -c "/mosquitto-no-auth.conf"
+    environment:
+      - TZ=Europe/London
+    restart: unless-stopped
+  mosquitto2:
+    image: repository.inetpsa.com/eclipse-mosquitto:latest
+    ports:
+      - "1885:1883"
+      - "9003:9001"
+    command: mosquitto -c "/mosquitto-no-auth.conf"
+    environment:
+      - TZ=Europe/London
+    restart: unless-stopped
+
+  mqttx-web:
+    image: emqx/mqttx-web
+    ports:
+      - "88:80"
+
+  zookeeper:
+    image: repository.inetpsa.com/confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    hostname: zookeeper
+    networks:
+      - vmn-network
+    ports:
+      - '2181:2181'
+
+
+  kafka:
+    image: repository.inetpsa.com/confluentinc/cp-kafka:7.3.3
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092 # 29092 between containers / 9092 outside
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: kafka
+      BOOTSTRAP_SERVER: kafka:9092
+      KAFKA_DELETE_TOPIC_ENABLE: true
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+      KAFKA_LOG4J_LOGGERS: 'kafka.controller=WARN,kafka.foo.bar=DEBUG'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: ERROR
+    hostname: kafka
+    networks:
+      - vmn-network
+    ports:
+      - '29092:29092'
+      - '9092:9092'
+      - '9101:9101'
+    depends_on:
+      - zookeeper
+
+
+  kafka-init:
+    image: repository.inetpsa.com/confluentinc/cp-kafka:7.3.3
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        cub kafka-ready -b kafka:29092 1 20 &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic vhc-json-vmn-pprod &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic vhc-json-event-pprod &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic response &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic vhc-json-remotecar-pprod && 
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic rcz-api-request-local"
+    networks:
+      - vmn-network
+
+
+  kafka-ui:
+    image: repository.inetpsa.com/provectuslabs/kafka-ui:latest
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - vmn-network
+
+
+  redis-single-node-cluster:
+    image: repository.inetpsa.com/bitnami/redis-cluster:latest
+    environment:
+      - 'ALLOW_EMPTY_PASSWORD=yes'
+      - 'REDIS_CLUSTER_REPLICAS=0'
+      - 'REDIS_NODES=127.0.0.1 127.0.0.1 127.0.0.1'
+      - 'REDIS_CLUSTER_CREATOR=yes'
+      - 'REDIS_CLUSTER_DYNAMIC_IPS=no'
+      - 'REDIS_CLUSTER_ANNOUNCE_IP=127.0.0.1'
+    ports:
+      - '6379:6379'
+    networks:
+      - redis-network
+
+  mongo:
+    image: mongodb/mongodb-community-server:6.0-ubi8
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rczunified
+      MONGO_INITDB_ROOT_PASSWORD: rczunified1
+      MONGO_INITDB_DATABASE: rcz
+    ports:
+      - 27017:27017
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 9000:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      ME_CONFIG_BASICAUTH_USERNAME: root
+      ME_CONFIG_BASICAUTH_PASSWORD: root
+      ME_CONFIG_MONGODB_URL: mongodb://rczunified:rczunified1@mongo:27017/
+networks:
+  vmn-network:
+    driver: bridge
+  redis-network:
+    driver: bridge
